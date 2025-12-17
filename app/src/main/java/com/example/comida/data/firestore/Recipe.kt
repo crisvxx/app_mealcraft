@@ -1,14 +1,14 @@
 package com.example.comida.data.firestore
-import com.google.firebase.firestore.DocumentId
 
 data class Recipe(
-    @DocumentId
     val id: String = "",
-    val titulo: String = "",
-    val ingredientes: List<String> = emptyList(),
-    val instrucciones: String = "",
-    val imagenUrl: String = "",
     val userId: String = "",
-    val categoria: String = "Todas",
-    val likes: List<String> = emptyList()
+    val titulo: String = "",
+    val ingredientes: String = "", // String normal
+    val instrucciones: String = "",
+    val categoria: String = "",
+    val imagenUrl: String = "",
+    val tiempo: String = "30 min",
+    val likes: List<String> = emptyList(),
+    val reviews: List<Review> = emptyList() // Automáticamente leerá la Review del otro archivo
 )

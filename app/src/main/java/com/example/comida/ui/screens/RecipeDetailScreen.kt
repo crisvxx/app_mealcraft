@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -29,8 +31,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.comida.data.firestore.Review
-import com.example.comida.ui.theme.* // Asegúrate de tener tus colores aquí o usa MaterialTheme
 import com.example.comida.viewmodel.RecipeViewModel
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -41,8 +43,6 @@ fun RecipeDetailScreen(
 ) {
     val recipeViewModel: RecipeViewModel = viewModel()
     val allRecipes by recipeViewModel.recipes.collectAsState()
-
-    // ⭐ 1. Observamos los comentarios de ESTA receta
     val reviews by recipeViewModel.currentReviews.collectAsState()
 
     // Buscamos la receta
@@ -50,6 +50,8 @@ fun RecipeDetailScreen(
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
 
+    // Auth para likes
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
     LaunchedEffect(recipeId) {
         recipeViewModel.fetchReviews(recipeId)
@@ -66,6 +68,9 @@ fun RecipeDetailScreen(
         return
     }
 
+    val isFavorite = recipe.likes.contains(currentUserId)
+
+    // ⭐ FUNCIÓN DE COMPARTIR ARREGLADA (Ahora imprime texto normal)
     fun shareRecipe() {
         val shareText = """
             🍽️ ¡Mira esta receta en MealCraft!
@@ -73,7 +78,10 @@ fun RecipeDetailScreen(
             *${recipe.titulo}*
             
             📝 Ingredientes:
-            ${recipe.ingredientes.joinToString("\n") { "- $it" }}
+            ${recipe.ingredientes}
+            
+            🍳 Instrucciones:
+            ${recipe.instrucciones}
             
             Descubre más en mi App.
         """.trimIndent()
@@ -101,19 +109,35 @@ fun RecipeDetailScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Botones flotantes (Atrás y Compartir)
+            // Botón Atrás
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.padding(16.dp).align(Alignment.TopStart).clip(CircleShape).background(Color.White.copy(alpha = 0.8f))
+                modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
+                    .clip(CircleShape).background(Color.White.copy(alpha = 0.8f))
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = colors.primary)
             }
 
+            // Botón Compartir
             IconButton(
                 onClick = { shareRecipe() },
-                modifier = Modifier.padding(16.dp).align(Alignment.TopEnd).clip(CircleShape).background(Color.White.copy(alpha = 0.8f))
+                modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)
+                    .clip(CircleShape).background(Color.White.copy(alpha = 0.8f))
             ) {
                 Icon(Icons.Default.Share, contentDescription = "Compartir", tint = colors.primary)
+            }
+
+            // Botón Favorito (Nuevo, en la imagen)
+            IconButton(
+                onClick = { recipeViewModel.toggleFavorite(recipe) },
+                modifier = Modifier.padding(16.dp).align(Alignment.BottomEnd)
+                    .clip(CircleShape).background(Color.White)
+            ) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    tint = if (isFavorite) Color.Red else Color.Gray
+                )
             }
         }
 
@@ -135,32 +159,40 @@ fun RecipeDetailScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Icon(Icons.Default.Timer, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("30 min", color = Color.Gray)
+                // ⭐ TIEMPO REAL
+                Text(recipe.tiempo.ifBlank { "30 min" }, color = Color.Gray)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Ingredientes
-            Text("Ingredientes", style = MaterialTheme.typography.titleLarge, color = colors.secondary, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            recipe.ingredientes.forEach { ingrediente ->
-                Row(modifier = Modifier.padding(vertical = 4.dp)) {
-                    Text("•", color = colors.primary, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(ingrediente, color = colors.secondary)
+            // ⭐ TARJETA BLANCA PARA DETALLES (Lo que pediste)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    // Ingredientes
+                    Text("Ingredientes", style = MaterialTheme.typography.titleMedium, color = colors.secondary, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Ahora es texto normal, no lista
+                    Text(recipe.ingredientes, lineHeight = 24.sp, color = Color.DarkGray)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider(color = Color.LightGray.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Instrucciones
+                    Text("Instrucciones", style = MaterialTheme.typography.titleMedium, color = colors.secondary, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(recipe.instrucciones, lineHeight = 24.sp, color = Color.DarkGray)
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Instrucciones
-            Text("Instrucciones", style = MaterialTheme.typography.titleLarge, color = colors.secondary, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = recipe.instrucciones, style = MaterialTheme.typography.bodyLarge, color = colors.secondary, lineHeight = 24.sp)
-
-            Divider(modifier = Modifier.padding(vertical = 24.dp), color = Color.LightGray)
-
-
+            // SECCIÓN DE OPINIONES
             Text("Tu Opinión", style = MaterialTheme.typography.titleLarge, color = colors.secondary, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -172,11 +204,10 @@ fun RecipeDetailScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Califica esta receta:", fontSize = 14.sp, color = Color.Gray)
-                    // Estrellas Interactivas
                     InteractiveRatingBar(
                         currentRating = userRating,
                         onRatingChanged = { userRating = it },
-                        starColor = Color(0xFFFFC107) // Amarillo Dorado
+                        starColor = Color(0xFFFFC107)
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -200,7 +231,6 @@ fun RecipeDetailScreen(
                             if (userRating > 0 && userComment.isNotBlank()) {
                                 recipeViewModel.submitReview(recipe.id, userComment, userRating)
                                 Toast.makeText(context, "¡Gracias por tu opinión!", Toast.LENGTH_SHORT).show()
-                                // Limpiar
                                 userRating = 0
                                 userComment = ""
                             } else {
@@ -217,7 +247,7 @@ fun RecipeDetailScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-
+            // LISTA DE RESEÑAS
             Text("Reseñas (${reviews.size})", style = MaterialTheme.typography.titleLarge, color = colors.secondary, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -235,7 +265,8 @@ fun RecipeDetailScreen(
     }
 }
 
-// COMPONENTE: ESTRELLAS INTERACTIVAS (Para calificar)
+// --- TUS COMPONENTES SIGUEN IGUAL ---
+
 @Composable
 fun InteractiveRatingBar(
     currentRating: Int,
@@ -249,41 +280,33 @@ fun InteractiveRatingBar(
                 imageVector = if (i <= currentRating) Icons.Default.Star else Icons.Default.StarBorder,
                 contentDescription = null,
                 tint = if (i <= currentRating) starColor else Color.Gray,
-                modifier = Modifier
-                    .size(32.dp)
-                    .clickable { onRatingChanged(i) }
+                modifier = Modifier.size(32.dp).clickable { onRatingChanged(i) }
             )
         }
     }
 }
 
-// COMPONENTE: TARJETA DE RESEÑA (Para ver)
 @Composable
 fun ReviewItem(review: Review) {
     val colors = MaterialTheme.colorScheme
     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.8f)),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f)),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Nombre del usuario
                 Text(review.userName, fontWeight = FontWeight.Bold, color = colors.secondary)
                 Spacer(modifier = Modifier.weight(1f))
-                // Estrellitas pequeñas estáticas
                 repeat(review.rating) {
                     Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
-            // Fecha
             Text(dateFormat.format(review.timestamp), fontSize = 12.sp, color = Color.Gray)
-
             Spacer(modifier = Modifier.height(8.dp))
-            // Comentario
             Text(review.comment, color = Color.DarkGray)
         }
     }

@@ -9,8 +9,10 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Favorite
@@ -36,7 +38,6 @@ val categories = listOf("Todas", "Desayuno", "Almuerzo", "Cena", "Postre")
 @Composable
 fun HomeScreen(
     onRecipeClick: (String) -> Unit
-    // Ya no recibimos onAddClick porque el botón está en AppNavigation
 ) {
     val recipeViewModel: RecipeViewModel = viewModel()
     val allRecipes by recipeViewModel.recipes.collectAsState()
@@ -52,11 +53,27 @@ fun HomeScreen(
         matchesCategory && matchesSearch
     }
 
+    // ⭐ DIÁLOGO DE INFORMACIÓN CORREGIDO (CON SCROLL)
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
             title = { Text("Sobre MealCraft", fontWeight = FontWeight.Bold, color = colors.primary) },
-            text = { Text("MealCraft es tu compañero culinario ideal...", color = Color.Gray) },
+            text = {
+                // Usamos Column con verticalScroll para que el texto largo no se corte
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        "MealCraft es tu compañero culinario ideal.\n\n" +
+                                "Versión: 1.0\n" +
+                                "Desarrollado con ❤️ usando Kotlin y Jetpack Compose.\n\n" +
+                                "Funciones:\n" +
+                                "• Guarda tus recetas favoritas.\n" +
+                                "• Comparte tus creaciones.\n" +
+                                "• Descubre nuevos sabores según su categoría.\n\n" +
+                                "¡Gracias por cocinar con nosotros!",
+                        color = Color.Gray
+                    )
+                }
+            },
             confirmButton = { TextButton(onClick = { showInfoDialog = false }) { Text("Entendido") } },
             containerColor = Color.White,
             shape = RoundedCornerShape(16.dp)
@@ -129,7 +146,6 @@ fun HomeScreen(
     }
 }
 
-// ... (CategoryChip y RecipeCard siguen igual) ...
 @Composable
 fun CategoryChip(text: String, isSelected: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
@@ -143,6 +159,7 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onFavoriteClick: () -> Unit)
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val isFavorite = recipe.likes.contains(currentUserId)
     val colors = MaterialTheme.colorScheme
+
     Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp), modifier = Modifier.fillMaxWidth().aspectRatio(0.8f).clickable { onClick() }) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column {
@@ -151,10 +168,16 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onFavoriteClick: () -> Unit)
                     Text(recipe.titulo, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = colors.secondary), maxLines = 1)
                     Text(recipe.categoria, style = MaterialTheme.typography.labelSmall.copy(color = colors.primary))
                     Spacer(modifier = Modifier.height(4.dp))
+
+                    // ⭐ TIEMPO REAL CORREGIDO
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("30 min", style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
+                        // Usamos el tiempo de la receta. Si está vacío, muestra "30 min" por defecto
+                        Text(
+                            text = recipe.tiempo.ifBlank { "30 min" },
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                        )
                     }
                 }
             }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,10 +46,11 @@ fun AddRecipeScreen() {
     var title by remember { mutableStateOf("") }
     var ingredients by remember { mutableStateOf("") }
     var instructions by remember { mutableStateOf("") }
+    var time by remember { mutableStateOf("") } // ⭐ NUEVO: Variable para el tiempo
     var selectedCategory by remember { mutableStateOf("Almuerzo") }
     var selectedImage by remember { mutableStateOf<Uri?>(null) }
 
-    // Estado de carga para evitar doble clic
+    // Estado de carga
     var isLoading by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -63,13 +65,13 @@ fun AddRecipeScreen() {
             .background(colors.background)
             .padding(16.dp)
             .verticalScroll(scrollState)
-            .imePadding(),
+            .imePadding(), // Esto ayuda a que el teclado no tape
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Nueva Receta", style = MaterialTheme.typography.headlineMedium, color = colors.primary, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Selector de Imagen
+        // Selector de Imagen (Tu diseño original)
         Box(
             modifier = Modifier
                 .fillMaxWidth().height(200.dp)
@@ -112,53 +114,61 @@ fun AddRecipeScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Campos de texto usando tu diseño MealInputText
         MealInputText(value = title, onValueChange = { title = it }, label = "Nombre del platillo")
+
         Spacer(modifier = Modifier.height(16.dp))
-        MealInputText(value = ingredients, onValueChange = { ingredients = it }, label = "Ingredientes (separados por comas)", singleLine = false)
+
+        // ⭐ NUEVO CAMPO DE TIEMPO
+        MealInputText(value = time, onValueChange = { time = it }, label = "Tiempo (ej: 45 min)")
+
         Spacer(modifier = Modifier.height(16.dp))
+
+        MealInputText(value = ingredients, onValueChange = { ingredients = it }, label = "Ingredientes", singleLine = false, minLines = 3)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         MealInputText(value = instructions, onValueChange = { instructions = it }, label = "Instrucciones", singleLine = false, minLines = 5)
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // BOTÓN GUARDAR ACTUALIZADO
+        // BOTÓN GUARDAR
         Button(
             onClick = {
-                // 1. Obtenemos el ID del usuario actual
                 val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
-                if (title.isNotEmpty() && currentUserId != null) {
-                    isLoading = true // Bloqueamos botón
+                if (title.isNotEmpty() && time.isNotEmpty() && currentUserId != null && selectedImage != null) {
+                    isLoading = true
 
-                    // 2. Llamamos a la función con TODOS los parámetros nuevos
-                    recipeViewModel.uploadRecipe(
+                    // ⭐ LLAMAMOS A LA FUNCIÓN CON EL NUEVO CAMPO 'TIEMPO'
+                    recipeViewModel.addRecipe(
+                        userId = currentUserId,
                         titulo = title,
-                        ingredientes = ingredients.split(",").map { it.trim() },
+                        ingredientes = ingredients, // Pasamos el texto directo
                         instrucciones = instructions,
-                        imageUri = selectedImage,
                         categoria = selectedCategory,
-                        userId = currentUserId, // ⭐ AQUÍ PASAMOS EL ID
-                        onSuccess = {
+                        imageUri = selectedImage!!,
+                        tiempo = time, // ⭐ AQUÍ PASAMOS EL TIEMPO
+                        onResult = { success ->
                             isLoading = false
-                            Toast.makeText(context, "✅ ¡Receta guardada con éxito!", Toast.LENGTH_LONG).show()
-
-                            // Limpiamos campos
-                            title = ""
-                            ingredients = ""
-                            instructions = ""
-                            selectedImage = null
-                        },
-                        onError = { errorMsg ->
-                            isLoading = false
-                            Toast.makeText(context, "❌ Error: $errorMsg", Toast.LENGTH_LONG).show()
+                            if (success) {
+                                Toast.makeText(context, "✅ ¡Receta publicada!", Toast.LENGTH_LONG).show()
+                                // Limpiar campos
+                                title = ""
+                                ingredients = ""
+                                instructions = ""
+                                time = ""
+                                selectedImage = null
+                            } else {
+                                Toast.makeText(context, "❌ Error al subir", Toast.LENGTH_LONG).show()
+                            }
                         }
                     )
-                } else if (currentUserId == null) {
-                    Toast.makeText(context, "Error: No has iniciado sesión", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "Por favor escribe un título", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Completa todos los campos y la foto", Toast.LENGTH_SHORT).show()
                 }
             },
-            enabled = !isLoading, // Deshabilitar si está cargando
+            enabled = !isLoading,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
@@ -176,6 +186,7 @@ fun AddRecipeScreen() {
     }
 }
 
+// Tu componente personalizado (Lo dejamos igual porque funciona bien)
 @Composable
 fun MealInputText(
     value: String,
